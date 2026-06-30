@@ -1,0 +1,4 @@
+:80 {
+    header Content-Type "application/json"
+    respond `{"status":"healthy","gateway":"vmgriffes-caddy","version":"0.1.0"}`
+}

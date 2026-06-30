@@ -1,0 +1,16 @@
+# === SEGURANCA: nunca enviar .env para o build context ===
+.env
+.env.*
+
+# === Evitar enviar desnecessario para o daemon ===
+target/
+.git/
+.gitignore
+.dockerignore
+*.md
+*.log
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

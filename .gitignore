@@ -1,0 +1,30 @@
+# === SEGURANCA: nunca versionar credenciais ===
+.env
+.env.*
+!.env.example
+
+# === Build ===
+target/
+*.class
+*.jar
+*.war
+native/
+
+# === IDEs e Editores ===
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# === OS ===
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# === Logs ===
+*.log
