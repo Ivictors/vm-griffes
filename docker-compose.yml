@@ -21,23 +21,23 @@ services:
     image: apache/kafka:4.3
     container_name: vmgriffes-kafka
     ports:
-      - "${KAFKA_PORT}:9092"
+      - "${KAFKA_PORT}:9094"
     volumes:
       - kafka_data:/var/lib/kafka/data
     environment:
       KAFKA_NODE_ID: ${KAFKA_NODE_ID}
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_PORT}
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: ${KAFKA_NODE_ID}@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     healthcheck:
-      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+      test: /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092
       interval: 10s
       timeout: 5s
       retries: 5
@@ -67,6 +67,9 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    depends_on:
+      - kafka-ui
+      - zipkin
     restart: unless-stopped
 
   zipkin:
