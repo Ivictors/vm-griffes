@@ -71,8 +71,10 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - kafka-ui
-      - zipkin
+       kafka-ui:
+          condition: service_started
+       zipkin:
+          condition: service_healthy
     restart: unless-stopped
 
   zipkin:
