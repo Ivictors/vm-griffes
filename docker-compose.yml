@@ -44,7 +44,7 @@ services:
     restart: unless-stopped
 
   kafka-ui:
-    image: kafbat/kafka-ui:latest
+    image: kafbat/kafka-ui:v1.4.2
     container_name: vmgriffes-kafka-ui
     ports:
       - "${KAFKA_UI_PORT}:8080"
