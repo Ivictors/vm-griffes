@@ -1,4 +1,118 @@
-:80 {
-    header Content-Type "application/json"
-    respond `{"status":"healthy","gateway":"vmgriffes-caddy","version":"0.1.0"}`
+{
+    email {$CADDY_EMAIL}
+}
+
+(COMMON_HEADERS) {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://res.cloudinary.com data:; connect-src 'self' {$CADDY_CSP_CONNECT_SRC};"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+        Access-Control-Allow-Origin {$CADDY_CORS_ORIGIN}
+        Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Allow-Credentials "true"
+        Access-Control-Max-Age "7200"
+    }
+}
+
+vmgriffes.local {
+    tls internal
+    request_body {
+        max_size 10MB
+    }
+
+    import COMMON_HEADERS
+
+    @public_routes {
+        path /api/v1/auth/login
+        path /api/v1/auth/register
+        path /api/v1/auth/refresh
+        path /api/v1/auth/forgot-password
+        path /api/v1/auth/reset-password
+        path /api/v1/auth/.well-known/*
+        path /api/v1/categories/*
+        path /api/v1/products/*
+        path /api/v1/shipping/calculate
+    }
+
+    @asaas_webhook {
+        path /api/v1/payments/webhook/asaas
+        remote_ip 200.147.98.0/24 200.147.99.0/24
+    }
+    handle @asaas_webhook {
+        reverse_proxy payment:8086
+    }
+
+    @rate_auth {
+        path /api/v1/auth/login
+        path /api/v1/auth/register
+    }
+    rate_limit @rate_auth {
+        zone auth_zone {
+            key {remote_host}
+            events_per_period 30
+            period 1m
+        }
+    }
+
+    @rate_store {
+        path /api/v1/categories/*
+        path /api/v1/products/*
+    }
+    rate_limit @rate_store {
+        zone store_zone {
+            key {remote_host}
+            events_per_period 100
+            period 1m
+        }
+    }
+
+    rate_limit @asaas_webhook {
+        zone webhook_zone {
+            key {remote_host}
+            events_per_period 10
+            period 1m
+        }
+    }
+
+    route /api/* {
+        handle @public_routes {
+            reverse_proxy iam:8081
+        }
+
+        forward_auth {
+            uri http://iam:8081/auth/validate
+            copy_headers Authorization X-User-Id X-User-Role
+        }
+
+        handle /api/v1/auth/*       { reverse_proxy iam:8081 }
+        handle /api/v1/categories/* { reverse_proxy catalog:8082 }
+        handle /api/v1/products/*   { reverse_proxy catalog:8082 }
+        handle /api/v1/cart/*       { reverse_proxy cart:8084 }
+        handle /api/v1/orders/*     { reverse_proxy order:8085 }
+        handle /api/v1/payments/*   { reverse_proxy payment:8086 }
+        handle /api/v1/shipping/*   { reverse_proxy shipping:8087 }
+        handle /api/v1/inventory/*  { reverse_proxy inventory:8083 }
+        handle /api/v1/users/*      { reverse_proxy iam:8081 }
+        handle /api/v1/notifications/* { reverse_proxy notification:8088 }
+        handle /api/v1/analytics/*  { reverse_proxy analytics:8090 }
+    }
+
+    handle /health {
+        respond `{"status":"healthy","gateway":"vmgriffes-caddy"}`
+    }
+
+    handle_errors {
+        respond `{"error":"{http.error.status_code}","message":"{http.error.status_text}"}`
+    }
+
+    handle {
+        root * /srv/angular
+        try_files {path} /index.html
+        file_server
+    }
 }

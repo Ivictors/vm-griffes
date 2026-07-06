@@ -58,13 +58,16 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2.11-alpine
+    build:
+      context: .
+      dockerfile: caddy/Dockerfile
     container_name: vmgriffes-caddy
     ports:
       - "${CADDY_HTTP_PORT}:80"
       - "${CADDY_HTTPS_PORT}:443"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./angular/dist/vmgriffes/browser:/srv/angular:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
