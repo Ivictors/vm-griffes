@@ -19,6 +19,27 @@
     }
 }
 
+@public_routes {
+    path /api/v1/auth/login
+    path /api/v1/auth/register
+    path /api/v1/auth/refresh
+    path /api/v1/auth/forgot-password
+    path /api/v1/auth/reset-password
+    path /api/v1/auth/.well-known/*
+    path /api/v1/categories/*
+    path /api/v1/products/*
+    path /api/v1/shipping/calculate
+    path /api/v1/payments/webhook/asaas
+}
+
+@private_routes {
+    not expression caddy.matchers.public_routes
+}
+
+@unauthorized_asaas {
+    expression caddy.matchers.public_routes && path('/api/v1/payments/webhook/asaas') && !remote_ip(200.147.98.0/24, 200.147.99.0/24)
+}
+
 vmgriffes.local {
     tls internal
     request_body {
@@ -27,24 +48,8 @@ vmgriffes.local {
 
     import COMMON_HEADERS
 
-    @public_routes {
-        path /api/v1/auth/login
-        path /api/v1/auth/register
-        path /api/v1/auth/refresh
-        path /api/v1/auth/forgot-password
-        path /api/v1/auth/reset-password
-        path /api/v1/auth/.well-known/*
-        path /api/v1/categories/*
-        path /api/v1/products/*
-        path /api/v1/shipping/calculate
-    }
-
-    @asaas_webhook {
-        path /api/v1/payments/webhook/asaas
-        remote_ip 200.147.98.0/24 200.147.99.0/24
-    }
-    handle @asaas_webhook {
-        reverse_proxy payment:8086
+    respond @unauthorized_asaas "Forbidden: Invalid Origin IP" 403 {
+        close
     }
 
     @rate_auth {
@@ -53,7 +58,7 @@ vmgriffes.local {
     }
     rate_limit @rate_auth {
         zone auth_zone {
-            key {remote_host}
+            key {remote_ip}
             events_per_period 30
             period 1m
         }
@@ -65,26 +70,22 @@ vmgriffes.local {
     }
     rate_limit @rate_store {
         zone store_zone {
-            key {remote_host}
+            key {remote_ip}
             events_per_period 100
             period 1m
         }
     }
 
-    rate_limit @asaas_webhook {
+    rate_limit /api/v1/payments/webhook/asaas {
         zone webhook_zone {
-            key {remote_host}
+            key {remote_ip}
             events_per_period 10
             period 1m
         }
     }
 
     route /api/* {
-        handle @public_routes {
-            reverse_proxy iam:8081
-        }
-
-        forward_auth {
+        forward_auth @private_routes {
             uri http://iam:8081/auth/validate
             copy_headers Authorization X-User-Id X-User-Role
         }
