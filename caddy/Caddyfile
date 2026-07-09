@@ -33,7 +33,7 @@
 }
 
 @private_routes {
-    not expression caddy.matchers.public_routes
+    not expression caddy.matchers.public_routes()
 }
 
 @unauthorized_asaas {
@@ -58,7 +58,7 @@ vmgriffes.local {
     }
     rate_limit @rate_auth {
         zone auth_zone {
-            key {remote_ip}
+            key {http.request.remote_ip}
             events_per_period 30
             period 1m
         }
@@ -70,7 +70,7 @@ vmgriffes.local {
     }
     rate_limit @rate_store {
         zone store_zone {
-            key {remote_ip}
+            key {http.request.remote_ip}
             events_per_period 100
             period 1m
         }
@@ -78,7 +78,7 @@ vmgriffes.local {
 
     rate_limit /api/v1/payments/webhook/asaas {
         zone webhook_zone {
-            key {remote_ip}
+            key {http.request.remote_ip}
             events_per_period 10
             period 1m
         }
