@@ -1,5 +1,5 @@
 # Stage 1: Compilar Caddy com plugin rate-limit
-FROM caddy:2.11-alpine-builder AS builder
+FROM caddy:2.11-builder AS builder
 RUN xcaddy build \
     --with github.com/mholt/caddy-ratelimit
 
@@ -16,4 +16,4 @@ RUN xcaddy build \
 FROM caddy:2.11-alpine
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # COPY --from=angular /app/dist/vmgriffes/browser /srv/angular
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY caddy/Caddyfile /etc/caddy/Caddyfile

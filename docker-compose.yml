@@ -5,7 +5,7 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   kafka:
-    image: apache/kafka:4.3
+    image: apache/kafka:4.3.1
     container_name: vmgriffes-kafka
     ports:
       - "${KAFKA_PORT}:9094"
@@ -31,6 +31,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_PORT}
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_QUORUM_VOTERS: ${KAFKA_NODE_ID}@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -62,6 +63,7 @@ services:
       context: .
       dockerfile: caddy/Dockerfile
     container_name: vmgriffes-caddy
+    env_file: .env
     ports:
       - "${CADDY_HTTP_PORT}:80"
       - "${CADDY_HTTPS_PORT}:443"
@@ -85,7 +87,7 @@ services:
     environment:
       JAVA_OPTS: -Xmx${ZIPKIN_MEM}
     healthcheck:
-      test: curl -sf http://localhost:9411/health || exit 1
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9411/health || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
