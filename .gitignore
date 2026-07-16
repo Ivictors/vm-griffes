@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Application properties (contem dados sensiveis via env vars)
+**/src/main/resources/application.properties
+
 # === Build ===
 target/
 *.class
