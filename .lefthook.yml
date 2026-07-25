@@ -1,0 +1,8 @@
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: "$LOCALAPPDATA/Programs/gitleaks/gitleaks protect --staged"
+      skip:
+        - merge
+        - rebase
