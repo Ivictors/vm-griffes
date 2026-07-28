@@ -1,0 +1,113 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-build:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: vmgriffes
+      POSTGRES_PASSWORD: vmgriffes_nightly
+      POSTGRES_DB: vmgriffes
+      POSTGRES_PORT: 5432
+      KAFKA_PORT: 9094
+      KAFKA_NODE_ID: 1
+      CADDY_HTTP_PORT: 80
+      CADDY_HTTPS_PORT: 443
+      ZIPKIN_PORT: 9411
+      KAFKA_UI_PORT: 8081
+      ZIPKIN_MEM: 256m
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: angular/package-lock.json
+
+      - name: Compile all Maven services
+        shell: bash
+        run: |
+          for srv in iam catalog inventory cart order payment shipping notification analytics; do
+            echo "=== Compiling $srv ==="
+            mvn compile -q -f "$srv/pom.xml"
+          done
+
+      - name: Build Angular (production)
+        run: |
+          npm --prefix angular ci
+          npx --prefix angular ng build --configuration production
+
+      - name: Create .env for docker-compose
+        shell: bash
+        run: |
+          cat > .env <<'ENVEOF'
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_PORT=${POSTGRES_PORT}
+          KAFKA_PORT=${KAFKA_PORT}
+          KAFKA_NODE_ID=${KAFKA_NODE_ID}
+          CADDY_HTTP_PORT=${CADDY_HTTP_PORT}
+          CADDY_HTTPS_PORT=${CADDY_HTTPS_PORT}
+          ZIPKIN_PORT=${ZIPKIN_PORT}
+          KAFKA_UI_PORT=${KAFKA_UI_PORT}
+          ZIPKIN_MEM=${ZIPKIN_MEM}
+          ENVEOF
+
+      - name: Start infrastructure
+        run: docker compose up -d --wait
+
+      - name: Verify containers
+        shell: bash
+        run: |
+          for c in vmgriffes-postgresql vmgriffes-kafka vmgriffes-kafka-ui vmgriffes-zipkin; do
+            status=$(docker inspect --format='{{.State.Health.Status}}' "$c" 2>/dev/null || echo "missing")
+            if [ "$status" != "healthy" ]; then
+              echo "WARN: $c is $status"
+              docker compose logs "$c" | tail -10
+            else
+              echo "OK: $c is $status"
+            fi
+          done
+
+      - name: Full Gitleaks scan
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Full Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-security-reports
+          path: trivy-results.sarif
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
