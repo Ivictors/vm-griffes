@@ -77,10 +77,10 @@ jobs:
         shell: bash
         run: |
           for c in vmgriffes-postgresql vmgriffes-kafka vmgriffes-kafka-ui vmgriffes-zipkin; do
-            status=$(docker inspect --format='{{.State.Health.Status}}' "$c" 2>/dev/null || echo "missing")
-            if [ "$status" != "healthy" ]; then
+            status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c" 2>/dev/null || echo "missing")
+            if [ "$status" != "healthy" ] && [ "$status" != "none" ]; then
               echo "WARN: $c is $status"
-              docker compose logs "$c" | tail -10
+              docker compose logs "$c" 2>/dev/null | tail -10 || true
             else
               echo "OK: $c is $status"
             fi

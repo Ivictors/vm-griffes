@@ -47,6 +47,12 @@ services:
   kafka-ui:
     image: kafbat/kafka-ui:v1.4.2
     container_name: vmgriffes-kafka-ui
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     ports:
       - "${KAFKA_UI_PORT}:8080"
     environment:
